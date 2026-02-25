@@ -1,14 +1,17 @@
-import { prisma } from "../../../shared/db/prisma.js";
+import { prisma as prismaClient } from "../../../shared/db/prisma.js";
 import { AppError } from "../../../shared/errors/AppError.js";
 import { OrdersRepository } from "../infra/orders.repository.js";
 
-const repo = new OrdersRepository();
-
 export class OrdersService {
+  constructor(
+    private readonly repo = new OrdersRepository(),
+    private readonly prisma = prismaClient
+  ) {}
+
   async checkout(userId: string) {
-    const cartItems = await prisma.cartItem.findMany({
+    const cartItems = await this.prisma.cartItem.findMany({
       where: { userId },
-      include: { product: true }
+      include: { product: true },
     });
 
     if (cartItems.length === 0) {
@@ -25,11 +28,11 @@ export class OrdersService {
       }
     }
 
-    return prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: any) => {
       for (const item of cartItems) {
         await tx.product.update({
           where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } }
+          data: { stock: { decrement: item.quantity } },
         });
       }
 
@@ -37,7 +40,7 @@ export class OrdersService {
         productId: item.productId,
         name: item.product.name,
         priceCents: item.product.priceCents,
-        quantity: item.quantity
+        quantity: item.quantity,
       }));
 
       const totalCents = snapshotItems.reduce(
@@ -49,9 +52,9 @@ export class OrdersService {
         data: {
           userId,
           totalCents,
-          items: { create: snapshotItems }
+          items: { create: snapshotItems },
         },
-        include: { items: true }
+        include: { items: true },
       });
 
       await tx.cartItem.deleteMany({ where: { userId } });
@@ -61,11 +64,11 @@ export class OrdersService {
   }
 
   list(userId: string) {
-    return repo.listByUser(userId);
+    return this.repo.listByUser(userId);
   }
 
   async get(userId: string, orderId: string) {
-    const order = await repo.getById(userId, orderId);
+    const order = await this.repo.getById(userId, orderId);
 
     if (!order) {
       throw new AppError("Order not found", 404, "ORDER_NOT_FOUND");
@@ -75,10 +78,10 @@ export class OrdersService {
   }
 
   async pay(userId: string, orderId: string) {
-    return prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: any) => {
       const order = await tx.order.findFirst({
         where: { id: orderId, userId },
-        include: { items: true }
+        include: { items: true },
       });
 
       if (!order) {
@@ -92,16 +95,16 @@ export class OrdersService {
       return tx.order.update({
         where: { id: orderId },
         data: { status: "PAID" },
-        include: { items: true }
+        include: { items: true },
       });
     });
   }
 
   async cancel(userId: string, orderId: string) {
-    return prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: any) => {
       const order = await tx.order.findFirst({
         where: { id: orderId, userId },
-        include: { items: true }
+        include: { items: true },
       });
 
       if (!order) {
@@ -115,14 +118,14 @@ export class OrdersService {
       for (const item of order.items) {
         await tx.product.update({
           where: { id: item.productId },
-          data: { stock: { increment: item.quantity } }
+          data: { stock: { increment: item.quantity } },
         });
       }
 
       return tx.order.update({
         where: { id: orderId },
         data: { status: "CANCELED" },
-        include: { items: true }
+        include: { items: true },
       });
     });
   }

@@ -5,35 +5,42 @@ import { UsersRepository } from "../../users/infra/users.repository.js";
 import { RegisterInput, LoginInput } from "../http/auth.schemas.js";
 import { AppError } from "../../../shared/errors/AppError.js";
 
-const usersRepository = new UsersRepository();
-
 export class AuthService {
+  constructor(
+    private readonly usersRepository = new UsersRepository(),
+    private readonly bcryptLib = bcrypt,
+    private readonly jwtLib = jwt
+  ) {}
+
   async register(data: RegisterInput) {
-    const existingUser = await usersRepository.findByEmail(data.email);
+    const existingUser = await this.usersRepository.findByEmail(data.email);
 
     if (existingUser) {
       throw new AppError("Email already in use", 409, "EMAIL_IN_USE");
     }
 
-    const passwordHash = await bcrypt.hash(data.password, 10);
+    const passwordHash = await this.bcryptLib.hash(data.password, 10);
 
-    const user = await usersRepository.create({
+    const user = await this.usersRepository.create({
       name: data.name,
       email: data.email,
-      passwordHash
+      passwordHash,
     });
 
     return this.generateToken(user.id);
   }
 
   async login(data: LoginInput) {
-    const user = await usersRepository.findByEmail(data.email);
+    const user = await this.usersRepository.findByEmail(data.email);
 
     if (!user) {
       throw new AppError("Invalid credentials", 401, "INVALID_CREDENTIALS");
     }
 
-    const passwordMatch = await bcrypt.compare(data.password, user.passwordHash);
+    const passwordMatch = await this.bcryptLib.compare(
+      data.password,
+      user.passwordHash
+    );
 
     if (!passwordMatch) {
       throw new AppError("Invalid credentials", 401, "INVALID_CREDENTIALS");
@@ -51,6 +58,6 @@ export class AuthService {
       throw new AppError("JWT secret not configured", 500, "JWT_SECRET_MISSING");
     }
 
-    return jwt.sign({ sub: userId }, secret, { expiresIn });
+    return this.jwtLib.sign({ sub: userId }, secret, { expiresIn });
   }
 }
