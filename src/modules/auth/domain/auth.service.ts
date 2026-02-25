@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import type { SignOptions } from "jsonwebtoken";
 import { UsersRepository } from "../../users/infra/users.repository.js";
 import { RegisterInput, LoginInput } from "../http/auth.schemas.js";
+import { AppError } from "../../../shared/errors/AppError.js";
 
 const usersRepository = new UsersRepository();
 
@@ -11,7 +12,7 @@ export class AuthService {
     const existingUser = await usersRepository.findByEmail(data.email);
 
     if (existingUser) {
-      throw new Error("Email already in use");
+      throw new AppError("Email already in use", 409, "EMAIL_IN_USE");
     }
 
     const passwordHash = await bcrypt.hash(data.password, 10);
@@ -29,16 +30,13 @@ export class AuthService {
     const user = await usersRepository.findByEmail(data.email);
 
     if (!user) {
-      throw new Error("Invalid credentials");
+      throw new AppError("Invalid credentials", 401, "INVALID_CREDENTIALS");
     }
 
-    const passwordMatch = await bcrypt.compare(
-      data.password,
-      user.passwordHash
-    );
+    const passwordMatch = await bcrypt.compare(data.password, user.passwordHash);
 
     if (!passwordMatch) {
-      throw new Error("Invalid credentials");
+      throw new AppError("Invalid credentials", 401, "INVALID_CREDENTIALS");
     }
 
     return this.generateToken(user.id);
@@ -46,16 +44,13 @@ export class AuthService {
 
   private generateToken(userId: string) {
     const secret = process.env.JWT_ACCESS_SECRET;
-    const expiresIn = process.env.JWT_ACCESS_EXPIRES_IN as SignOptions["expiresIn"];
+    const expiresIn =
+      process.env.JWT_ACCESS_EXPIRES_IN as SignOptions["expiresIn"];
 
     if (!secret) {
-      throw new Error("JWT_ACCESS_SECRET not defined");
+      throw new AppError("JWT secret not configured", 500, "JWT_SECRET_MISSING");
     }
 
-    return jwt.sign(
-      { sub: userId },
-      secret,
-      { expiresIn }
-    );
+    return jwt.sign({ sub: userId }, secret, { expiresIn });
   }
 }
