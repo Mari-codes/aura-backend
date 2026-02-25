@@ -1,4 +1,5 @@
 import { prisma } from "../../../shared/db/prisma.js";
+import { AppError } from "../../../shared/errors/AppError.js";
 import { OrdersRepository } from "../infra/orders.repository.js";
 
 const repo = new OrdersRepository();
@@ -11,12 +12,17 @@ export class OrdersService {
     });
 
     if (cartItems.length === 0) {
-      throw new Error("Cart is empty");
+      throw new AppError("Cart is empty", 409, "CART_EMPTY");
     }
 
     for (const item of cartItems) {
-      if (!item.product.isActive) throw new Error("Product not available");
-      if (item.quantity > item.product.stock) throw new Error("Insufficient stock");
+      if (!item.product.isActive) {
+        throw new AppError("Product not available", 409, "PRODUCT_NOT_AVAILABLE");
+      }
+
+      if (item.quantity > item.product.stock) {
+        throw new AppError("Insufficient stock", 409, "INSUFFICIENT_STOCK");
+      }
     }
 
     return prisma.$transaction(async (tx) => {
@@ -43,9 +49,7 @@ export class OrdersService {
         data: {
           userId,
           totalCents,
-          items: {
-            create: snapshotItems
-          }
+          items: { create: snapshotItems }
         },
         include: { items: true }
       });
@@ -62,54 +66,64 @@ export class OrdersService {
 
   async get(userId: string, orderId: string) {
     const order = await repo.getById(userId, orderId);
-    if (!order) throw new Error("Order not found");
+
+    if (!order) {
+      throw new AppError("Order not found", 404, "ORDER_NOT_FOUND");
+    }
+
     return order;
   }
 
   async pay(userId: string, orderId: string) {
-  return prisma.$transaction(async (tx) => {
-    const order = await tx.order.findFirst({
-      where: { id: orderId, userId },
-      include: { items: true }
-    });
-
-    if (!order) throw new Error("Order not found");
-    if (order.status !== "PENDING") throw new Error("Order cannot be paid");
-
-    const updated = await tx.order.update({
-      where: { id: orderId },
-      data: { status: "PAID" },
-      include: { items: true }
-    });
-
-    return updated;
-  });
-}
-
-async cancel(userId: string, orderId: string) {
-  return prisma.$transaction(async (tx) => {
-    const order = await tx.order.findFirst({
-      where: { id: orderId, userId },
-      include: { items: true }
-    });
-
-    if (!order) throw new Error("Order not found");
-    if (order.status !== "PENDING") throw new Error("Order cannot be canceled");
-
-    for (const item of order.items) {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: { stock: { increment: item.quantity } }
+    return prisma.$transaction(async (tx) => {
+      const order = await tx.order.findFirst({
+        where: { id: orderId, userId },
+        include: { items: true }
       });
-    }
 
-    const updated = await tx.order.update({
-      where: { id: orderId },
-      data: { status: "CANCELED" },
-      include: { items: true }
+      if (!order) {
+        throw new AppError("Order not found", 404, "ORDER_NOT_FOUND");
+      }
+
+      if (order.status !== "PENDING") {
+        throw new AppError("Order cannot be paid", 409, "ORDER_STATE_INVALID");
+      }
+
+      return tx.order.update({
+        where: { id: orderId },
+        data: { status: "PAID" },
+        include: { items: true }
+      });
     });
+  }
 
-    return updated;
-  });
-}
+  async cancel(userId: string, orderId: string) {
+    return prisma.$transaction(async (tx) => {
+      const order = await tx.order.findFirst({
+        where: { id: orderId, userId },
+        include: { items: true }
+      });
+
+      if (!order) {
+        throw new AppError("Order not found", 404, "ORDER_NOT_FOUND");
+      }
+
+      if (order.status !== "PENDING") {
+        throw new AppError("Order cannot be canceled", 409, "ORDER_STATE_INVALID");
+      }
+
+      for (const item of order.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } }
+        });
+      }
+
+      return tx.order.update({
+        where: { id: orderId },
+        data: { status: "CANCELED" },
+        include: { items: true }
+      });
+    });
+  }
 }

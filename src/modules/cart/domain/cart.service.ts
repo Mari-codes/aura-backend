@@ -1,4 +1,5 @@
 import { prisma } from "../../../shared/db/prisma.js";
+import { AppError } from "../../../shared/errors/AppError.js";
 import { CartRepository } from "../infra/cart.repository.js";
 
 const repo = new CartRepository();
@@ -12,15 +13,14 @@ export class CartService {
     const product = await this.getActiveProduct(productId);
 
     if (quantity > product.stock) {
-      throw new Error("Insufficient stock");
+      throw new AppError("Insufficient stock", 409, "INSUFFICIENT_STOCK");
     }
 
     const existing = await repo.findItem(userId, productId);
-
     const newQty = existing ? existing.quantity + quantity : quantity;
 
     if (newQty > product.stock) {
-      throw new Error("Insufficient stock");
+      throw new AppError("Insufficient stock", 409, "INSUFFICIENT_STOCK");
     }
 
     return repo.upsertItem(userId, productId, newQty);
@@ -30,19 +30,29 @@ export class CartService {
     const product = await this.getActiveProduct(productId);
 
     if (quantity > product.stock) {
-      throw new Error("Insufficient stock");
+      throw new AppError("Insufficient stock", 409, "INSUFFICIENT_STOCK");
     }
 
     return repo.upsertItem(userId, productId, quantity);
   }
 
-  remove(userId: string, productId: string) {
-    return repo.deleteItem(userId, productId);
+  async remove(userId: string, productId: string) {
+    const existing = await repo.findItem(userId, productId);
+
+    if (!existing) {
+      throw new AppError("Cart item not found", 404, "CART_ITEM_NOT_FOUND");
+    }
+
+    await repo.deleteItem(userId, productId);
   }
 
   private async getActiveProduct(productId: string) {
     const product = await prisma.product.findUnique({ where: { id: productId } });
-    if (!product || !product.isActive) throw new Error("Product not found");
+
+    if (!product || !product.isActive) {
+      throw new AppError("Product not found", 404, "PRODUCT_NOT_FOUND");
+    }
+
     return product;
   }
 }
