@@ -1,11 +1,14 @@
 import { Router } from "express";
 import { AuthController } from "./auth.controller.js";
+import { AuthService } from "../domain/auth.service.js";
 import { requireAuth } from "../../../shared/http/requireAuth.js";
 import { requireAdmin } from "../../../shared/http/requireAdmin.js";
 import { asyncHandler } from "../../../shared/http/asyncHandler.js";
 
 export const authRoutes = Router();
-const controller = new AuthController();
+
+const service = new AuthService();
+const controller = new AuthController(service);
 
 authRoutes.post("/register", asyncHandler(controller.register));
 authRoutes.post("/login", asyncHandler(controller.login));
@@ -21,7 +24,7 @@ authRoutes.get(
   (req, res) => {
     return res.json({
       message: "You are an admin",
-      userId: req.userId
+      userId: req.userId,
     });
   }
 );
