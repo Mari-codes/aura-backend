@@ -32,6 +32,7 @@ model Product {
   description String?
   priceCents  Int
   stock       Int     @default(0)
+  imageKey    String?
   imageUrl    String?
   isActive    Boolean @default(true)
 
