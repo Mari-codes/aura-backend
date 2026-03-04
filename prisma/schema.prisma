@@ -47,7 +47,7 @@ model CartItem {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId String
 
   quantity Int @default(1)
@@ -66,7 +66,7 @@ enum OrderStatus {
 
 model Order {
   id         String      @id @default(cuid())
-  user       User        @relation(fields: [userId], references: [id])
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId     String
   status     OrderStatus @default(PENDING)
   totalCents Int
