@@ -1,15 +1,15 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import type { SignOptions } from "jsonwebtoken";
 import { UsersRepository } from "../../users/infra/users.repository.js";
 import { RegisterInput, LoginInput } from "../http/auth.schemas.js";
 import { AppError } from "../../../shared/errors/AppError.js";
+import { env } from "../../../shared/config/env.js";
 
 export class AuthService {
   constructor(
     private readonly usersRepository = new UsersRepository(),
     private readonly bcryptLib = bcrypt,
-    private readonly jwtLib = jwt
+    private readonly jwtLib = jwt,
   ) {}
 
   async register(data: RegisterInput) {
@@ -39,7 +39,7 @@ export class AuthService {
 
     const passwordMatch = await this.bcryptLib.compare(
       data.password,
-      user.passwordHash
+      user.passwordHash,
     );
 
     if (!passwordMatch) {
@@ -50,14 +50,8 @@ export class AuthService {
   }
 
   private generateToken(userId: string) {
-    const secret = process.env.JWT_ACCESS_SECRET;
-    const expiresIn =
-      process.env.JWT_ACCESS_EXPIRES_IN as SignOptions["expiresIn"];
-
-    if (!secret) {
-      throw new AppError("JWT secret not configured", 500, "JWT_SECRET_MISSING");
-    }
-
-    return this.jwtLib.sign({ sub: userId }, secret, { expiresIn });
+    return this.jwtLib.sign({ sub: userId }, env.JWT_ACCESS_SECRET, {
+      expiresIn: env.JWT_ACCESS_EXPIRES_IN,
+    });
   }
 }
