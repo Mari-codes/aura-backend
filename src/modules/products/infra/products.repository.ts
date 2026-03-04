@@ -1,11 +1,11 @@
 import { prisma } from "../../../shared/db/prisma.js";
-import type { CreateProductInput, UpdateProductInput } from "../http/products.schemas.js";
+import type { Prisma } from "@prisma/client";
 
 export class ProductsRepository {
   listPublic() {
     return prisma.product.findMany({
       where: { isActive: true },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -17,11 +17,11 @@ export class ProductsRepository {
     return prisma.product.findUnique({ where: { slug } });
   }
 
-  create(data: CreateProductInput) {
+  create(data: Prisma.ProductCreateInput) {
     return prisma.product.create({ data });
   }
 
-  update(id: string, data: UpdateProductInput) {
+  update(id: string, data: Prisma.ProductUpdateInput) {
     return prisma.product.update({ where: { id }, data });
   }
 

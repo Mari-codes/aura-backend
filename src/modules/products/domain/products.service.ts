@@ -1,6 +1,10 @@
 import { AppError } from "../../../shared/errors/AppError.js";
+import { env } from "../../../shared/config/env.js";
 import { ProductsRepository } from "../infra/products.repository.js";
-import type { CreateProductInput, UpdateProductInput } from "../http/products.schemas.js";
+import type {
+  CreateProductInput,
+  UpdateProductInput,
+} from "../http/products.schemas.js";
 
 export class ProductsService {
   constructor(private readonly repo = new ProductsRepository()) {}
@@ -26,7 +30,14 @@ export class ProductsService {
       throw new AppError("Slug already in use", 409, "SLUG_IN_USE");
     }
 
-    return this.repo.create(data);
+    const imageUrl = data.imageKey
+      ? `${env.AWS_S3_PUBLIC_BASE_URL}/${data.imageKey}?v=${Date.now()}`
+      : undefined;
+
+    return this.repo.create({
+      ...data,
+      ...(imageUrl ? { imageUrl } : {}),
+    });
   }
 
   async update(id: string, data: UpdateProductInput) {
@@ -44,7 +55,14 @@ export class ProductsService {
       }
     }
 
-    return this.repo.update(id, data);
+    const imageUrl = data.imageKey
+      ? `${env.AWS_S3_PUBLIC_BASE_URL}/${data.imageKey}?v=${Date.now()}`
+      : undefined;
+
+    return this.repo.update(id, {
+      ...data,
+      ...(data.imageKey ? { imageUrl } : {}),
+    });
   }
 
   async delete(id: string) {
