@@ -1,8 +1,6 @@
-import "dotenv/config";
 import { app } from "./app.js";
+import { env } from "../shared/config/env.js";
 
-const port = Number(process.env.PORT) || 3333;
-
-app.listen(port, () => {
-  console.log(`AURA API on http://localhost:${port}`);
+app.listen(env.PORT, () => {
+  console.log(`AURA API on http://localhost:${env.PORT}`);
 });
