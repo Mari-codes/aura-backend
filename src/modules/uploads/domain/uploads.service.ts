@@ -28,7 +28,7 @@ export class UploadsService {
     }
 
     const clean = safeFilename(filename) || "image";
-    const key = `products/${productId}/${clean}`;
+    const key = `products/${productId}/cover-${Date.now()}-${clean}`;
 
     const command = new PutObjectCommand({
       Bucket: env.AWS_S3_BUCKET,

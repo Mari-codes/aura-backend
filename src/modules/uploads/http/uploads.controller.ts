@@ -6,12 +6,12 @@ export class UploadsController {
   constructor(private service = new UploadsService()) {}
 
   presign = async (req: Request, res: Response) => {
-    const data = presignSchema.parse(req.body);
+    const { productId, filename, contentType } = presignSchema.parse(req.body);
 
     const result = await this.service.createPresignedUpload(
-      data.productId,
-      data.filename,
-      data.contentType
+      productId,
+      filename,
+      contentType
     );
 
     return res.json(result);
